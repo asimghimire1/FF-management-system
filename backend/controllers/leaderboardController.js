@@ -1,0 +1,93 @@
+const Leaderboard = require("../models/Leaderboard");
+const Match = require("../models/Match");
+const Team = require("../models/Team");
+const { processLeaderboardImage } = require("../utils/ocr");
+const { calculatePrizes, calculateTotalPoints } = require("../utils/prizeCalculator");
+
+const uploadAndProcessLeaderboard = async (req, res) => {
+  try {
+    const { matchId, roundNumber } = req.body;
+
+    if (!matchId || !req.file) {
+      return res.status(400).json({ message: "Match ID and image required" });
+    }
+
+    const match = await Match.findById(matchId);
+    if (!match) {
+      return res.status(404).json({ message: "Match not found" });
+    }
+
+    // Process image with OCR
+    const leaderboardData = await processLeaderboardImage(req.file.path);
+
+    // Calculate prizes
+    const totalAmount = match.maxTeams * match.entryFee;
+    const { prizePool, platformFee, prizes } = calculatePrizes(totalAmount);
+
+    // Add points to each entry
+    const entriesWithPoints = leaderboardData.map((entry) => ({
+      ...entry,
+      points: calculateTotalPoints(entry.kills, entry.placement, match.maxTeams),
+    }));
+
+    // Create leaderboard document
+    const leaderboard = new Leaderboard({
+      matchId,
+      roundNumber: roundNumber || 1,
+      entries: entriesWithPoints,
+      prizeDistribution: prizes,
+      totalPrizePool: prizePool,
+      platformFee,
+    });
+
+    await leaderboard.save();
+
+    // Add to match leaderboards
+    await Match.findByIdAndUpdate(matchId, {
+      $push: { leaderboards: leaderboard._id },
+    });
+
+    res.status(201).json({
+      message: "Leaderboard processed successfully",
+      leaderboard,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getLeaderboardByMatch = async (req, res) => {
+  try {
+    const leaderboard = await Leaderboard.findOne({
+      matchId: req.params.matchId,
+    }).sort({ createdAt: -1 });
+
+    if (!leaderboard) {
+      return res.status(404).json({ message: "Leaderboard not found" });
+    }
+
+    res.json({ leaderboard });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getLeaderboardById = async (req, res) => {
+  try {
+    const leaderboard = await Leaderboard.findById(req.params.leaderboardId);
+
+    if (!leaderboard) {
+      return res.status(404).json({ message: "Leaderboard not found" });
+    }
+
+    res.json({ leaderboard });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  uploadAndProcessLeaderboard,
+  getLeaderboardByMatch,
+  getLeaderboardById,
+};

@@ -1,0 +1,22 @@
+const express = require("express");
+const {
+  uploadAndProcessLeaderboard,
+  getLeaderboardByMatch,
+  getLeaderboardById,
+} = require("../controllers/leaderboardController");
+const { authMiddleware, adminMiddleware } = require("../middleware/auth");
+const upload = require("../middleware/upload");
+
+const router = express.Router();
+
+router.post(
+  "/upload",
+  authMiddleware,
+  adminMiddleware,
+  upload.single("leaderboardImage"),
+  uploadAndProcessLeaderboard
+);
+router.get("/match/:matchId", getLeaderboardByMatch);
+router.get("/:leaderboardId", getLeaderboardById);
+
+module.exports = router;
