@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Loader, AlertCircle } from "lucide-react";
+import { Loader, AlertCircle, Trophy, Flame } from "lucide-react";
 import { leaderboardAPI } from "../services/api";
 import LeaderboardTable from "../components/LeaderboardTable";
 import PrizePool from "../components/PrizePool";
@@ -31,64 +31,103 @@ export default function Leaderboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <Loader className="animate-spin text-blue-400" size={40} />
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-gray-900 flex justify-center items-center">
+        <Loader className="animate-spin text-orange-400" size={60} />
       </div>
     );
   }
 
   if (!leaderboard) {
     return (
-      <div className="card text-center text-red-400">
-        <AlertCircle className="mx-auto mb-2" />
-        Leaderboard not found
+      <div className="bg-black/40 border-2 border-red-600 rounded-xl p-8 backdrop-blur-sm text-center">
+        <AlertCircle className="mx-auto mb-4 text-red-400" size={48} />
+        <p className="text-red-400 font-bold text-lg">LEADERBOARD NOT FOUND</p>
       </div>
     );
   }
 
   const totalEntries = leaderboard.entries?.length || 0;
-  const totalAmount = totalEntries * 100; // Assuming 100 entry fee per team
+  const totalAmount = totalEntries * 100;
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-4xl font-bold mb-2">Final Leaderboard</h1>
-        <p className="text-gray-400">
-          Generated on {new Date(leaderboard.generatedAt).toLocaleString()}
-        </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-gray-900 relative overflow-hidden pb-20">
+      {/* Animated Background */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
+        <div className="absolute top-20 right-20 w-96 h-96 bg-orange-500 rounded-full mix-blend-screen animate-pulse"></div>
+        <div className="absolute bottom-20 left-10 w-96 h-96 bg-red-600 rounded-full mix-blend-screen animate-pulse" style={{animationDelay: '1s'}}></div>
       </div>
 
-      {error && (
-        <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded flex items-center gap-2">
-          <AlertCircle size={20} />
-          {error}
-        </div>
-      )}
-
-      {/* Prize Pool Info */}
-      <PrizePool
-        totalPrizePool={leaderboard.totalPrizePool || 0}
-        platformFee={leaderboard.platformFee || 0}
-        prizes={leaderboard.prizeDistribution || {}}
-        totalEntries={totalEntries}
-        entryFee={Math.round(totalAmount / totalEntries) || 0}
-      />
-
-      {/* Leaderboard Table */}
-      <LeaderboardTable
-        entries={leaderboard.entries || []}
-        prizes={leaderboard.prizeDistribution || {}}
-      />
-
-      {/* Additional Stats */}
-      {leaderboard.roundNumber && (
-        <div className="card">
-          <h3 className="text-lg font-semibold mb-3">Match Details</h3>
-          <p className="text-gray-300">
-            Round: <span className="text-blue-400 font-semibold">{leaderboard.roundNumber}</span>
+      <div className="relative z-10 space-y-8 max-w-6xl mx-auto px-4 py-12">
+        {/* Header */}
+        <header className="text-center">
+          <div className="inline-block p-4 bg-gradient-to-r from-orange-600 to-red-600 rounded-full border-2 border-yellow-400 mb-6">
+            <Trophy size={64} className="text-yellow-300" />
+          </div>
+          <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-yellow-300 to-red-400 mb-4 drop-shadow-lg">
+            FINAL RESULTS
+          </h1>
+          <p className="text-orange-300 font-bold">
+            ●●●●●
           </p>
+          <p className="text-gray-300 mt-2">
+            Generated on {new Date(leaderboard.generatedAt || Date.now()).toLocaleString()}
+          </p>
+        </header>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="bg-red-900/80 border-2 border-red-500 text-red-200 px-6 py-4 rounded-lg flex items-start gap-3 backdrop-blur">
+            <AlertCircle size={24} className="flex-shrink-0 mt-0.5 text-red-400" />
+            <div>
+              <p className="font-bold">ERROR</p>
+              <p className="text-sm">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Prize Pool Info */}
+        <PrizePool
+          totalPrizePool={leaderboard.totalPrizePool || totalAmount * 0.834}
+          platformFee={leaderboard.platformFee || totalAmount * 0.166}
+          prizes={leaderboard.prizeDistribution || {}}
+          totalEntries={totalEntries}
+          entryFee={Math.round(totalAmount / totalEntries) || 100}
+        />
+
+        {/* Leaderboard Table */}
+        <div className="bg-black/40 border-2 border-orange-600 rounded-xl p-8 backdrop-blur-sm">
+          <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-300 mb-6 flex items-center gap-3">
+            <Flame size={32} /> BATTLE STANDINGS
+          </h2>
+          <LeaderboardTable
+            entries={leaderboard.entries || []}
+            prizes={leaderboard.prizeDistribution || {}}
+          />
         </div>
-      )}
+
+        {/* Match Details */}
+        {leaderboard.roundNumber && (
+          <div className="bg-black/40 border-2 border-orange-600 rounded-xl p-8 backdrop-blur-sm">
+            <h3 className="text-xl font-black text-orange-300 mb-4 flex items-center gap-2">
+              <Trophy size={24} /> BATTLE INFORMATION
+            </h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="bg-black/50 rounded-lg p-4">
+                <p className="text-gray-400 text-xs font-bold mb-1">ROUND</p>
+                <p className="text-2xl font-black text-blue-300">{leaderboard.roundNumber}</p>
+              </div>
+              <div className="bg-black/50 rounded-lg p-4">
+                <p className="text-gray-400 text-xs font-bold mb-1">TOTAL TEAMS</p>
+                <p className="text-2xl font-black text-green-300">{totalEntries}</p>
+              </div>
+              <div className="bg-black/50 rounded-lg p-4">
+                <p className="text-gray-400 text-xs font-bold mb-1">GENERATED AT</p>
+                <p className="text-lg font-black text-orange-300">{new Date(leaderboard.generatedAt || Date.now()).toLocaleDateString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -16,18 +16,17 @@ const createMatch = async (req, res) => {
     if (type === "tournament" && rounds && Array.isArray(rounds)) {
       matchRounds = rounds;
     } else if (type === "scrim") {
-      // For scrims, create a single round
       matchRounds = [
         {
           roundNum: 1,
           teamsSlots: maxTeams || 12,
-          advancingTeams: 0, // No advancement in scrims
+          advancingTeams: 0,
           registrations: [],
         },
       ];
     }
 
-    const match = new Match({
+    const match = await Match.create({
       name,
       type,
       entryFee,
@@ -38,7 +37,6 @@ const createMatch = async (req, res) => {
       createdBy: req.userId,
     });
 
-    await match.save();
     res.status(201).json({ message: "Match created", match });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -47,7 +45,7 @@ const createMatch = async (req, res) => {
 
 const getAllMatches = async (req, res) => {
   try {
-    const matches = await Match.find().sort({ createdAt: -1 });
+    const matches = await Match.findAll({ order: [["createdAt", "DESC"]] });
     res.json({ matches });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -56,9 +54,7 @@ const getAllMatches = async (req, res) => {
 
 const getMatchById = async (req, res) => {
   try {
-    const match = await Match.findById(req.params.matchId)
-      .populate("registrations")
-      .populate("leaderboards");
+    const match = await Match.findByPk(req.params.matchId);
 
     if (!match) {
       return res.status(404).json({ message: "Match not found" });
@@ -79,12 +75,12 @@ const updateMatchStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    const match = await Match.findByIdAndUpdate(
-      req.params.matchId,
+    await Match.update(
       { status },
-      { new: true }
+      { where: { id: req.params.matchId } }
     );
 
+    const match = await Match.findByPk(req.params.matchId);
     res.json({ message: "Match status updated", match });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -93,16 +89,16 @@ const updateMatchStatus = async (req, res) => {
 
 const deleteMatch = async (req, res) => {
   try {
-    const match = await Match.findById(req.params.matchId);
+    const match = await Match.findByPk(req.params.matchId);
     if (!match) {
       return res.status(404).json({ message: "Match not found" });
     }
 
-    if (match.createdBy.toString() !== req.userId) {
+    if (match.createdBy !== req.userId) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    await Match.findByIdAndDelete(req.params.matchId);
+    await Match.destroy({ where: { id: req.params.matchId } });
     res.json({ message: "Match deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -116,3 +112,4 @@ module.exports = {
   updateMatchStatus,
   deleteMatch,
 };
+

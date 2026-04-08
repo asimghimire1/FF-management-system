@@ -10,18 +10,22 @@ const uploadPaymentScreenshot = async (req, res) => {
       return res.status(400).json({ message: "Payment ID and screenshot required" });
     }
 
-    const payment = await Payment.findById(paymentId);
+    const payment = await Payment.findByPk(paymentId);
     if (!payment) {
       return res.status(404).json({ message: "Payment not found" });
     }
 
     const screenshotUrl = `/uploads/${req.file.filename}`;
-    payment.screenshotUrl = screenshotUrl;
-    await payment.save();
+    await Payment.update(
+      { screenshotUrl },
+      { where: { id: paymentId } }
+    );
+
+    const updatedPayment = await Payment.findByPk(paymentId);
 
     res.json({
       message: "Screenshot uploaded. Waiting for admin approval.",
-      payment,
+      payment: updatedPayment,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -30,8 +34,9 @@ const uploadPaymentScreenshot = async (req, res) => {
 
 const getPaymentsByUser = async (req, res) => {
   try {
-    const payments = await Payment.find({ userId: req.userId })
-      .populate("registrationId");
+    const payments = await Payment.findAll({
+      where: { userId: req.userId },
+    });
 
     res.json({ payments });
   } catch (error) {
@@ -41,9 +46,9 @@ const getPaymentsByUser = async (req, res) => {
 
 const getAllPendingPayments = async (req, res) => {
   try {
-    const payments = await Payment.find({ status: "pending" })
-      .populate("userId", "email username")
-      .populate("registrationId");
+    const payments = await Payment.findAll({
+      where: { status: "pending" },
+    });
 
     res.json({ payments });
   } catch (error) {

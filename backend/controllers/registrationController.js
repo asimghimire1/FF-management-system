@@ -11,16 +11,18 @@ const registerForMatch = async (req, res) => {
       return res.status(400).json({ message: "Team ID and Match ID required" });
     }
 
-    const match = await Match.findById(matchId);
+    const match = await Match.findByPk(matchId);
     if (!match) {
       return res.status(404).json({ message: "Match not found" });
     }
 
     // Check if already registered
     const existingReg = await Registration.findOne({
-      userId: req.userId,
-      teamId,
-      matchId,
+      where: {
+        userId: req.userId,
+        teamId,
+        matchId,
+      },
     });
 
     if (existingReg) {
@@ -28,7 +30,7 @@ const registerForMatch = async (req, res) => {
     }
 
     // Create registration and payment
-    const registration = new Registration({
+    const registration = await Registration.create({
       userId: req.userId,
       teamId,
       matchId,
@@ -36,30 +38,23 @@ const registerForMatch = async (req, res) => {
       status: "pending",
     });
 
-    await registration.save();
-
-    const payment = new Payment({
+    const payment = await Payment.create({
       userId: req.userId,
-      registrationId: registration._id,
+      registrationId: registration.id,
       amount: match.entryFee,
       screenshotUrl: "",
       status: "pending",
     });
 
-    await payment.save();
-
-    registration.paymentId = payment._id;
-    await registration.save();
-
-    // Add to match registrations
-    await Match.findByIdAndUpdate(matchId, {
-      $push: { registrations: registration._id },
-    });
+    await Registration.update(
+      { paymentId: payment.id },
+      { where: { id: registration.id } }
+    );
 
     res.status(201).json({
       message: "Registration created. Please upload payment screenshot.",
       registration,
-      paymentId: payment._id,
+      paymentId: payment.id,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -68,12 +63,9 @@ const registerForMatch = async (req, res) => {
 
 const getRegistrationsByMatch = async (req, res) => {
   try {
-    const registrations = await Registration.find({
-      matchId: req.params.matchId,
-    })
-      .populate("userId", "email username")
-      .populate("teamId")
-      .populate("paymentId");
+    const registrations = await Registration.findAll({
+      where: { matchId: req.params.matchId },
+    });
 
     res.json({ registrations });
   } catch (error) {
@@ -83,12 +75,9 @@ const getRegistrationsByMatch = async (req, res) => {
 
 const getMyRegistrations = async (req, res) => {
   try {
-    const registrations = await Registration.find({
-      userId: req.userId,
-    })
-      .populate("matchId")
-      .populate("teamId")
-      .populate("paymentId");
+    const registrations = await Registration.findAll({
+      where: { userId: req.userId },
+    });
 
     res.json({ registrations });
   } catch (error) {

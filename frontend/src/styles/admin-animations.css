@@ -1,0 +1,353 @@
+/* Free Fire Themed Admin Dashboard Animations */
+
+@keyframes scanLine {
+  0% {
+    top: -100%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+
+@keyframes glowPulse {
+  0% {
+    box-shadow: 0 0 5px rgba(249, 115, 22, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.8), 0 0 30px rgba(220, 38, 38, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(249, 115, 22, 0.5);
+  }
+}
+
+@keyframes floatUpDown {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes rotateGlow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes warningBlink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes characterBreathe {
+  0%, 100% {
+    transform: scale(1) translateY(0px);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.02) translateY(-5px);
+    opacity: 1;
+  }
+}
+
+@keyframes energyPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(249, 115, 22, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+  }
+}
+
+@keyframes borderGlow {
+  0% {
+    border-color: rgb(234, 88, 12);
+  }
+  50% {
+    border-color: rgb(239, 68, 68);
+  }
+  100% {
+    border-color: rgb(234, 88, 12);
+  }
+}
+
+@keyframes textGlow {
+  0% {
+    text-shadow: 0 0 5px rgba(249, 115, 22, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 20px rgba(249, 115, 22, 1), 0 0 30px rgba(220, 38, 38, 0.5);
+  }
+  100% {
+    text-shadow: 0 0 5px rgba(249, 115, 22, 0.5);
+  }
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Utility Classes */
+.animate-scan-line {
+  animation: scanLine 4s infinite;
+  position: relative;
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: floatUpDown 3s ease-in-out infinite;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.6s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.6s ease-out;
+}
+
+.animate-rotate-glow {
+  animation: rotateGlow 8s linear infinite;
+}
+
+.animate-warning-blink {
+  animation: warningBlink 1s ease-in-out infinite;
+}
+
+.animate-character-breathe {
+  animation: characterBreathe 4s ease-in-out infinite;
+}
+
+.animate-energy-pulse {
+  animation: energyPulse 2s infinite;
+}
+
+.animate-border-glow {
+  animation: borderGlow 2s ease-in-out infinite;
+}
+
+.animate-text-glow {
+  animation: textGlow 2s ease-in-out infinite;
+}
+
+.animate-fade-slide-in {
+  animation: fadeSlideIn 0.8s ease-out;
+}
+
+/* Game-style elements */
+.game-panel {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(31, 41, 55, 0.8) 100%);
+  border: 2px solid;
+  border-color: rgb(234, 88, 12);
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.game-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: shimmer 3s infinite;
+  pointer-events: none;
+}
+
+.game-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.game-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(249, 115, 22, 0.6);
+}
+
+.game-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+.corner-accent {
+  position: relative;
+}
+
+.corner-accent::before,
+.corner-accent::after {
+  content: '';
+  position: absolute;
+  background: rgb(234, 88, 12);
+}
+
+.corner-accent::before {
+  width: 20px;
+  height: 2px;
+  top: 0;
+  left: 0;
+}
+
+.corner-accent::after {
+  width: 2px;
+  height: 20px;
+  top: 0;
+  left: 0;
+}
+
+/* Character container */
+.character-slot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 250px;
+  overflow: visible;
+}
+
+.character-asset {
+  position: relative;
+  width: 100px;
+  height: 150px;
+  background: rgba(249, 115, 22, 0.1);
+  border: 2px solid rgba(249, 115, 22, 0.5);
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  font-size: 60px;
+  animation: characterBreathe 4s ease-in-out infinite;
+}
+
+.character-asset.breathing {
+  animation: characterBreathe 4s ease-in-out infinite;
+}
+
+/* Status indicator */
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgb(34, 197, 94);
+  animation: energyPulse 2s infinite;
+  margin-right: 8px;
+}
+
+.status-indicator.pending {
+  background: rgb(202, 138, 4);
+  animation: warningBlink 1s ease-in-out infinite;
+}
+
+.status-indicator.error {
+  background: rgb(220, 38, 38);
+  animation: warningBlink 1s ease-in-out infinite;
+}
+
+/* Admin-specific */
+.admin-header-glow {
+  animation: textGlow 2s ease-in-out infinite;
+}
+
+.payment-card-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(31, 41, 55, 1),
+    rgba(55, 65, 81, 1),
+    rgba(31, 41, 55, 1)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
+
+.slot-grid-item {
+  transition: all 0.3s ease;
+  animation: fadeSlideIn 0.6s ease-out;
+}
+
+.slot-grid-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(249, 115, 22, 0.3);
+}
+
+.hex-bg {
+  background-image: linear-gradient(135deg, transparent 45%, rgba(249, 115, 22, 0.1) 45%, rgba(249, 115, 22, 0.1) 55%, transparent 55%),
+                    linear-gradient(225deg, transparent 45%, rgba(249, 115, 22, 0.1) 45%, rgba(249, 115, 22, 0.1) 55%, transparent 55%);
+  background-size: 60px 104px;
+  background-position: 0 0;
+  animation: slideInRight 0.8s ease-out;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .character-asset {
+    width: 80px;
+    height: 120px;
+    font-size: 48px;
+  }
+
+  .animate-float {
+    animation: floatUpDown 4s ease-in-out infinite;
+  }
+}

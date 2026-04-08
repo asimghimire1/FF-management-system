@@ -12,7 +12,7 @@ const uploadAndProcessLeaderboard = async (req, res) => {
       return res.status(400).json({ message: "Match ID and image required" });
     }
 
-    const match = await Match.findById(matchId);
+    const match = await Match.findByPk(matchId);
     if (!match) {
       return res.status(404).json({ message: "Match not found" });
     }
@@ -31,20 +31,13 @@ const uploadAndProcessLeaderboard = async (req, res) => {
     }));
 
     // Create leaderboard document
-    const leaderboard = new Leaderboard({
+    const leaderboard = await Leaderboard.create({
       matchId,
       roundNumber: roundNumber || 1,
       entries: entriesWithPoints,
       prizeDistribution: prizes,
       totalPrizePool: prizePool,
       platformFee,
-    });
-
-    await leaderboard.save();
-
-    // Add to match leaderboards
-    await Match.findByIdAndUpdate(matchId, {
-      $push: { leaderboards: leaderboard._id },
     });
 
     res.status(201).json({
@@ -59,8 +52,9 @@ const uploadAndProcessLeaderboard = async (req, res) => {
 const getLeaderboardByMatch = async (req, res) => {
   try {
     const leaderboard = await Leaderboard.findOne({
-      matchId: req.params.matchId,
-    }).sort({ createdAt: -1 });
+      where: { matchId: req.params.matchId },
+      order: [["createdAt", "DESC"]],
+    });
 
     if (!leaderboard) {
       return res.status(404).json({ message: "Leaderboard not found" });
@@ -74,7 +68,7 @@ const getLeaderboardByMatch = async (req, res) => {
 
 const getLeaderboardById = async (req, res) => {
   try {
-    const leaderboard = await Leaderboard.findById(req.params.leaderboardId);
+    const leaderboard = await Leaderboard.findByPk(req.params.leaderboardId);
 
     if (!leaderboard) {
       return res.status(404).json({ message: "Leaderboard not found" });
