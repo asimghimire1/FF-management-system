@@ -3,6 +3,7 @@ const {
   uploadAndProcessLeaderboard,
   getLeaderboardByMatch,
   getLeaderboardById,
+  updateLeaderboard,
 } = require("../controllers/leaderboardController");
 const { authMiddleware, adminMiddleware } = require("../middleware/auth");
 const upload = require("../middleware/upload");
@@ -18,5 +19,6 @@ router.post(
 );
 router.get("/match/:matchId", getLeaderboardByMatch);
 router.get("/:leaderboardId", getLeaderboardById);
+router.put("/:leaderboardId", authMiddleware, adminMiddleware, updateLeaderboard);
 
 module.exports = router;

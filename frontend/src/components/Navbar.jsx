@@ -40,14 +40,6 @@ export default function Navbar() {
               >
                 Teams
               </Link>
-              {user?.role === "admin" && (
-                <Link
-                  to="/admin"
-                  className="text-blue-400 hover:text-blue-300 transition font-medium"
-                >
-                  Admin
-                </Link>
-              )}
               <div className="text-gray-400 text-sm border-r border-gray-600 pr-6">
                 {user?.username}
               </div>
@@ -105,15 +97,6 @@ export default function Navbar() {
               >
                 Teams
               </Link>
-              {user?.role === "admin" && (
-                <Link
-                  to="/admin"
-                  className="block text-blue-400 font-medium py-2"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Admin Panel
-                </Link>
-              )}
               <button
                 onClick={handleLogout}
                 className="block w-full text-left text-red-400 hover:text-red-300 py-2 font-medium"

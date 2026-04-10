@@ -1,43 +1,101 @@
-import { useEffect, useState } from "react";
-import { Loader, AlertCircle, CheckCircle, Trash2, Zap, Users, Shield, TrendingUp, Flame, Target } from "lucide-react";
-import { paymentAPI, adminAPI, leaderboardAPI } from "../services/api";
-import OCRUpload from "../components/OCRUpload";
-import SlotAssignment from "../components/SlotAssignment";
-import "../styles/admin-animations.css";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Loader,
+  Shield,
+  Swords,
+  Trophy,
+  Upload,
+} from "lucide-react";
+import { adminAPI, leaderboardAPI, matchAPI, paymentAPI } from "../services/api";
+
+const defaultTournament = {
+  name: "",
+  type: "tournament",
+  entryFee: 100,
+  maxTeams: 12,
+  startDate: "",
+  endDate: "",
+};
 
 export default function AdminDashboard() {
-  const [pendingPayments, setPendingPayments] = useState([]);
-  const [slots, setSlots] = useState([]);
-  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [activeTab, setActiveTab] = useState("tournaments");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("payments");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [slots, setSlots] = useState([]);
+  const [selectedMatch, setSelectedMatch] = useState("");
+
+  const [tournamentForm, setTournamentForm] = useState(defaultTournament);
+
+  const [leaderboardFile, setLeaderboardFile] = useState(null);
+  const [leaderboardRound, setLeaderboardRound] = useState(1);
+  const [currentLeaderboard, setCurrentLeaderboard] = useState(null);
+  const [entriesText, setEntriesText] = useState("[]");
+
+  const selectedMatchName = useMemo(() => {
+    const match = matches.find((m) => m.id === selectedMatch);
+    return match?.name || "";
+  }, [matches, selectedMatch]);
 
   useEffect(() => {
-    fetchPendingPayments();
+    initializeAdminData();
   }, []);
 
-  const fetchPendingPayments = async () => {
+  const initializeAdminData = async () => {
     try {
       setLoading(true);
-      const res = await paymentAPI.getPendingPayments();
-      setPendingPayments(res.data.payments || []);
+      const [paymentsRes, matchesRes] = await Promise.all([
+        paymentAPI.getPendingPayments(),
+        matchAPI.getAllMatches(),
+      ]);
+
+      const allMatches = matchesRes.data.matches || [];
+      setPendingPayments(paymentsRes.data.payments || []);
+      setMatches(allMatches);
+
+      if (allMatches.length > 0) {
+        setSelectedMatch(allMatches[0].id);
+      }
       setError("");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load payments");
+      setError(err.response?.data?.message || "Failed to load admin data");
     } finally {
       setLoading(false);
     }
   };
 
   const fetchSlots = async (matchId) => {
+    if (!matchId) return;
     try {
       const res = await adminAPI.getMatchSlots(matchId);
       setSlots(res.data.slots || []);
-      setSelectedMatch(matchId);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load slots");
+      setError(err.response?.data?.message || "Failed to load match slots");
+    }
+  };
+
+  const fetchLeaderboard = async (matchId) => {
+    if (!matchId) return;
+    try {
+      const res = await leaderboardAPI.getLeaderboardByMatch(matchId);
+      const lb = res.data.leaderboard;
+      setCurrentLeaderboard(lb);
+      setEntriesText(JSON.stringify(lb.entries || [], null, 2));
+      setLeaderboardRound(lb.roundNumber || 1);
+      setError("");
+    } catch (err) {
+      setCurrentLeaderboard(null);
+      setEntriesText("[]");
+      const status = err.response?.status;
+      if (status !== 404) {
+        setError(err.response?.data?.message || "Failed to load leaderboard");
+      }
     }
   };
 
@@ -45,9 +103,8 @@ export default function AdminDashboard() {
     try {
       setActionLoading(true);
       await adminAPI.approvePayment(paymentId);
-      setPendingPayments(
-        pendingPayments.filter((p) => p.id !== paymentId)
-      );
+      setPendingPayments((prev) => prev.filter((p) => p.id !== paymentId));
+      setSuccess("Payment approved");
     } catch (err) {
       setError(err.response?.data?.message || "Approval failed");
     } finally {
@@ -56,15 +113,12 @@ export default function AdminDashboard() {
   };
 
   const handleRejectPayment = async (paymentId) => {
-    const reason = prompt("Rejection reason (optional):");
-    if (reason === null) return;
-
+    const reason = window.prompt("Rejection reason (optional):") || "";
     try {
       setActionLoading(true);
       await adminAPI.rejectPayment(paymentId, reason);
-      setPendingPayments(
-        pendingPayments.filter((p) => p.id !== paymentId)
-      );
+      setPendingPayments((prev) => prev.filter((p) => p.id !== paymentId));
+      setSuccess("Payment rejected");
     } catch (err) {
       setError(err.response?.data?.message || "Rejection failed");
     } finally {
@@ -72,314 +126,420 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAssignSlot = async (registrationId, slotNumber) => {
+  const handleTournamentCreate = async (e) => {
+    e.preventDefault();
     try {
       setActionLoading(true);
-      await adminAPI.assignSlot(registrationId, slotNumber);
-      if (selectedMatch) {
-        fetchSlots(selectedMatch);
-      }
+      const payload = {
+        ...tournamentForm,
+        entryFee: Number(tournamentForm.entryFee),
+        maxTeams: Number(tournamentForm.maxTeams),
+      };
+      await matchAPI.createMatch(payload);
+      setTournamentForm(defaultTournament);
+      setSuccess("Tournament hosted successfully");
+      await initializeAdminData();
     } catch (err) {
-      setError(err.response?.data?.message || "Slot assignment failed");
+      setError(err.response?.data?.message || "Tournament creation failed");
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleOCRUpload = async (file, matchId, roundNumber) => {
+  const handleUpdateStatus = async (matchId, status) => {
     try {
-      await leaderboardAPI.uploadLeaderboard(matchId, roundNumber, file);
-      alert("Leaderboard processed successfully!");
+      setActionLoading(true);
+      await matchAPI.updateStatus(matchId, status);
+      setSuccess("Match status updated");
+      await initializeAdminData();
     } catch (err) {
-      throw err;
+      setError(err.response?.data?.message || "Status update failed");
+    } finally {
+      setActionLoading(false);
     }
   };
 
+  const handleUploadLeaderboard = async (e) => {
+    e.preventDefault();
+    if (!selectedMatch || !leaderboardFile) {
+      setError("Select a match and file first");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      await leaderboardAPI.uploadLeaderboard(selectedMatch, leaderboardRound, leaderboardFile);
+      setSuccess("Leaderboard uploaded and processed");
+      setLeaderboardFile(null);
+      await fetchLeaderboard(selectedMatch);
+    } catch (err) {
+      setError(err.response?.data?.message || "Leaderboard upload failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateLeaderboard = async () => {
+    if (!currentLeaderboard?.id) {
+      setError("No leaderboard loaded for this match");
+      return;
+    }
+
+    let parsedEntries;
+    try {
+      parsedEntries = JSON.parse(entriesText);
+      if (!Array.isArray(parsedEntries)) {
+        throw new Error("Entries must be a JSON array");
+      }
+    } catch (parseError) {
+      setError(parseError.message || "Invalid JSON in entries");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      await leaderboardAPI.updateLeaderboard(currentLeaderboard.id, {
+        entries: parsedEntries,
+        roundNumber: Number(leaderboardRound),
+      });
+      setSuccess("Leaderboard updated successfully");
+      await fetchLeaderboard(selectedMatch);
+    } catch (err) {
+      setError(err.response?.data?.message || "Leaderboard update failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "slots" && selectedMatch) {
+      fetchSlots(selectedMatch);
+    }
+
+    if (activeTab === "leaderboard" && selectedMatch) {
+      fetchLeaderboard(selectedMatch);
+    }
+  }, [activeTab, selectedMatch]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-orange-900 to-gray-900 flex items-center justify-center">
-        <Loader className="animate-spin text-orange-500" size={60} />
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader className="animate-spin text-orange-500" size={56} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-red-900 to-gray-900 relative overflow-hidden pb-20 hex-bg">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="absolute top-10 right-20 w-96 h-96 bg-orange-500 rounded-full mix-blend-screen animate-pulse"></div>
-        <div className="absolute bottom-20 left-10 w-96 h-96 bg-red-600 rounded-full mix-blend-screen animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-yellow-500 rounded-full mix-blend-multiply animate-pulse" style={{animationDelay: '2s'}}></div>
-      </div>
-
-      {/* Character Assets - Top Right Corner */}
-      <div className="absolute top-20 right-10 z-5 pointer-events-none animate-float">
-        <div className="character-slot opacity-60">
-          <div className="character-asset breathing">🔫</div>
-        </div>
-      </div>
-
-      {/* Decorative Corner */}
-      <div className="absolute bottom-32 left-8 corner-accent opacity-30"></div>
-      <div className="absolute top-32 right-8 corner-accent opacity-30"></div>
-
-      <div className="relative z-10">
-        {/* Header */}
-        <header className="border-b-4 animate-border-glow backdrop-blur-lg bg-black/60 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute inset-0" style={{
-              backgroundImage: "linear-gradient(45deg, rgba(249,115,22,0.1) 25%, transparent 25%, transparent 50%, rgba(249,115,22,0.1) 50%, rgba(249,115,22,0.1) 75%, transparent 75%, transparent)",
-              backgroundSize: "40px 40px"
-            }}></div>
+    <div className="min-h-screen bg-black text-white px-4 py-8 md:px-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <header className="flex flex-wrap justify-between items-center gap-4 border border-orange-700 rounded-xl p-6 bg-gray-900">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black text-orange-400 flex items-center gap-3">
+              <Shield size={34} /> Admin Dashboard
+            </h1>
+            <p className="text-gray-400 mt-2">Dedicated control center for tournaments, slots, payments, and leaderboard updates.</p>
           </div>
-          <div className="container mx-auto px-4 py-6 relative">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="animate-rotate-glow">
-                  <Shield size={45} className="text-orange-500 drop-shadow-lg" />
-                </div>
-                <div>
-                  <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-300 via-red-500 to-yellow-300 animate-text-glow drop-shadow-lg">
-                    ADMIN COMMAND CENTER
-                  </h1>
-                  <p className="text-orange-300 text-sm font-bold flex items-center gap-2 mt-1">
-                    <Flame size={16} className="animate-bounce" /> Free Fire Tournament Master
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center justify-end gap-2 mb-2">
-                  <div className="status-indicator"></div>
-                  <p className="text-orange-400 font-bold text-lg animate-glow-pulse">ONLINE</p>
-                </div>
-                <p className="text-gray-400 text-xs bg-gradient-to-r from-orange-600/20 to-red-600/20 px-3 py-1 rounded-full">ACTIVE SESSION</p>
-              </div>
-            </div>
-          </div>
+          <a href="/admin/login" className="text-sm text-orange-300 hover:text-orange-200">Switch admin account</a>
         </header>
 
-        {/* Error Alert */}
         {error && (
-          <div className="container mx-auto px-4 mt-6 animate-fade-slide-in">
-            <div className="bg-red-900/80 border-2 border-red-500 text-red-200 px-6 py-4 rounded-lg flex items-start gap-3 backdrop-blur-md shadow-2xl shadow-red-500/20 animate-warning-blink">
-              <AlertCircle size={24} className="flex-shrink-0 mt-0.5 text-red-400 animate-bounce" />
-              <div>
-                <p className="font-bold text-lg">⚠ CRITICAL ALERT</p>
-                <p className="text-sm mt-1">{error}</p>
-              </div>
-            </div>
+          <div className="rounded-lg border border-red-600 bg-red-900/30 p-4 flex items-start gap-2">
+            <AlertCircle size={18} className="mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+        {success && (
+          <div className="rounded-lg border border-green-600 bg-green-900/30 p-4 flex items-start gap-2">
+            <CheckCircle size={18} className="mt-0.5" />
+            <span>{success}</span>
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="container mx-auto px-4 mt-12">
-          <div className="flex gap-4 mb-8 flex-wrap">
-            {[
-              { id: "payments", label: "💰 Payment Control", icon: <Zap size={20} /> },
-              { id: "slots", label: "🎯 Slot Assignment", icon: <Target size={20} /> },
-              { id: "leaderboard", label: "🏆 OCR Upload", icon: <TrendingUp size={20} /> },
-            ].map((tab, idx) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-8 py-3 rounded-lg font-bold transition-all transform duration-300 game-button ${
-                  activeTab === tab.id
-                    ? "bg-gradient-to-r from-orange-500 via-red-600 to-yellow-500 text-white shadow-2xl shadow-orange-500/50 border-2 border-yellow-300 animate-glow-pulse scale-105"
-                    : "bg-gray-800/80 text-gray-300 border-2 border-gray-700 hover:border-orange-500 hover:shadow-lg hover:shadow-orange-500/30"
-                }`}
-                style={{
-                  animation: activeTab === tab.id ? "slideInRight 0.4s ease-out" : "none",
-                  transitionDelay: `${idx * 50}ms`
-                }}
-              >
-                <span className="flex items-center gap-2">
-                  {tab.label}
-                </span>
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-3">
+          {[
+            ["tournaments", "Host Tournament"],
+            ["payments", "Review Payments"],
+            ["slots", "Manage Slots"],
+            ["leaderboard", "Update Leaderboard"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => {
+                setActiveTab(id);
+                setError("");
+                setSuccess("");
+              }}
+              className={`px-4 py-2 rounded-lg font-semibold ${
+                activeTab === id
+                  ? "bg-orange-600 text-white"
+                  : "bg-gray-800 text-gray-200 border border-gray-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* Content Sections */}
-        <div className="container mx-auto px-4 space-y-8">
-          {/* Payment Control Tab */}
-          {activeTab === "payments" && (
-            <section className="game-panel animate-fade-slide-in hover:border-yellow-400 transition-all">
-              <div className="relative p-8">
-                <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-300 mb-6 flex items-center gap-3 animate-text-glow">
-                  <div className="animate-glow-pulse">
-                    <Zap size={32} className="text-orange-500" />
-                  </div>
-                  PENDING PAYMENTS ({pendingPayments.length})
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 space-y-5">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Selected Match</label>
+            <select
+              value={selectedMatch}
+              onChange={(e) => setSelectedMatch(e.target.value)}
+              className="w-full max-w-xl rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+            >
+              {matches.length === 0 && <option value="">No matches found</option>}
+              {matches.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} ({m.status})</option>
+              ))}
+            </select>
+          </div>
+
+          {activeTab === "tournaments" && (
+            <div className="grid md:grid-cols-2 gap-6">
+              <form onSubmit={handleTournamentCreate} className="space-y-3">
+                <h2 className="font-bold text-xl text-orange-300 flex items-center gap-2">
+                  <Swords size={22} /> Host New Tournament
                 </h2>
+                <input
+                  value={tournamentForm.name}
+                  onChange={(e) => setTournamentForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+                  placeholder="Tournament name"
+                  required
+                />
+                <select
+                  value={tournamentForm.type}
+                  onChange={(e) => setTournamentForm((prev) => ({ ...prev, type: e.target.value }))}
+                  className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+                >
+                  <option value="tournament">Tournament</option>
+                  <option value="scrim">Scrim</option>
+                </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    value={tournamentForm.entryFee}
+                    onChange={(e) => setTournamentForm((prev) => ({ ...prev, entryFee: e.target.value }))}
+                    className="rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+                    placeholder="Entry fee"
+                    min="0"
+                    required
+                  />
+                  <input
+                    type="number"
+                    value={tournamentForm.maxTeams}
+                    onChange={(e) => setTournamentForm((prev) => ({ ...prev, maxTeams: e.target.value }))}
+                    className="rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+                    placeholder="Max teams"
+                    min="1"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="date"
+                    value={tournamentForm.startDate}
+                    onChange={(e) => setTournamentForm((prev) => ({ ...prev, startDate: e.target.value }))}
+                    className="rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+                  />
+                  <input
+                    type="date"
+                    value={tournamentForm.endDate}
+                    onChange={(e) => setTournamentForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                    className="rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="rounded-lg bg-orange-600 px-4 py-2 font-bold hover:bg-orange-500 disabled:opacity-50"
+                >
+                  Host Tournament
+                </button>
+              </form>
 
-                {pendingPayments.length === 0 ? (
-                  <div className="text-center py-16 bg-gradient-to-b from-gray-900/80 to-gray-800/80 rounded-lg border-2 border-dashed border-gray-600 animate-fade-slide-in">
-                    <p className="text-2xl text-gray-300 font-black">✓ ALL CLEAR</p>
-                    <p className="text-gray-500 text-sm mt-3">No pending payments to process</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                    {pendingPayments.map((payment, idx) => (
-                      <div
-                        key={payment.id}
-                        className="payment-card-shimmer border-l-4 border-orange-500 p-6 rounded-lg transform hover:scale-102 transition-all hover:shadow-2xl hover:shadow-orange-500/20 hover:border-yellow-400 animate-fade-slide-in"
-                        style={{ animationDelay: `${idx * 50}ms` }}
-                      >
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="status-indicator pending"></div>
-                              <p className="font-bold text-orange-300 text-lg">► {payment.userId?.username || "Unknown"}</p>
-                            </div>
-                            <p className="text-sm text-gray-400 ml-6">{payment.registrationId?.teamId?.name || "Team"}</p>
-                            <p className="text-yellow-400 font-bold mt-3 ml-6 text-lg">💰 {payment.amount}</p>
-                            {payment.screenshotUrl && (
-                              <a
-                                href={payment.screenshotUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-400 text-sm hover:underline mt-2 ml-6 block animate-bounce"
-                              >
-                                📸 View Screenshot
-                              </a>
-                            )}
-                          </div>
-
-                          <div className="flex gap-2 flex-col">
-                            <button
-                              onClick={() => handleApprovePayment(payment.id)}
-                              className="game-button bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap font-bold py-2 px-4 rounded-lg text-white transition-all"
-                              disabled={actionLoading}
-                            >
-                              <CheckCircle size={18} />
-                              APPROVE
-                            </button>
-                            <button
-                              onClick={() => handleRejectPayment(payment.id)}
-                              className="game-button bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:opacity-50 flex items-center gap-2 whitespace-nowrap font-bold py-2 px-4 rounded-lg text-white transition-all"
-                              disabled={actionLoading}
-                            >
-                              <Trash2 size={18} />
-                              REJECT
-                            </button>
-                          </div>
-                        </div>
+              <div className="space-y-3">
+                <h2 className="font-bold text-xl text-orange-300">Existing Matches</h2>
+                <div className="max-h-96 overflow-auto space-y-2">
+                  {matches.map((m) => (
+                    <div key={m.id} className="border border-gray-700 rounded-lg p-3">
+                      <div className="font-semibold">{m.name}</div>
+                      <div className="text-sm text-gray-400">{m.type} | {m.status} | Entry: {m.entryFee}</div>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {[
+                          "registration_open",
+                          "registration_closed",
+                          "ongoing",
+                          "completed",
+                        ].map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => handleUpdateStatus(m.id, status)}
+                            className="text-xs rounded bg-gray-800 border border-gray-700 px-2 py-1 hover:border-orange-500"
+                          >
+                            {status}
+                          </button>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </section>
+            </div>
           )}
 
-          {/* Slot Assignment Tab */}
+          {activeTab === "payments" && (
+            <div>
+              <h2 className="font-bold text-xl text-orange-300 mb-4">Pending Payments</h2>
+              <div className="space-y-2">
+                {pendingPayments.length === 0 && <p className="text-gray-400">No pending payments.</p>}
+                {pendingPayments.map((payment) => (
+                  <div key={payment.id} className="border border-gray-700 rounded-lg p-3 flex justify-between gap-3 items-start">
+                    <div>
+                      <div className="font-semibold">User: {payment.userId?.username || "Unknown"}</div>
+                      <div className="text-sm text-gray-400">Amount: {payment.amount}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleApprovePayment(payment.id)}
+                        disabled={actionLoading}
+                        className="rounded bg-green-700 px-3 py-1 text-sm hover:bg-green-600 disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleRejectPayment(payment.id)}
+                        disabled={actionLoading}
+                        className="rounded bg-red-700 px-3 py-1 text-sm hover:bg-red-600 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeTab === "slots" && (
-            <section className="game-panel animate-fade-slide-in">
-              <div className="relative p-8">
-                <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-300 mb-8 flex items-center gap-3 animate-text-glow">
-                  <div className="animate-glow-pulse">
-                    <Users size={32} className="text-orange-500" />
-                  </div>
-                  SLOT COMMANDER
-                </h2>
-
-                <div className="mb-8 p-6 bg-gradient-to-r from-gray-800/40 to-gray-700/40 rounded-lg border border-orange-500/30">
-                  <label className="text-orange-300 font-bold text-lg mb-3 block flex items-center gap-2">
-                    <Target size={20} /> SELECT MATCH
-                  </label>
-                  <select
-                    value={selectedMatch || ""}
-                    onChange={(e) => e.target.value && fetchSlots(e.target.value)}
-                    className="w-full bg-gray-800 border-2 border-orange-600 text-white focus:border-yellow-400 focus:outline-none px-4 py-3 rounded-lg font-semibold transition-all hover:border-orange-500"
-                  >
-                    <option value="">-- CHOOSE MATCH --</option>
-                    {[...new Set(pendingPayments.map(p => p.registrationId?.matchId))].map((match) => (
-                      match && (
-                        <option key={match.id} value={match.id}>
-                          {match.name}
-                        </option>
-                      )
-                    ))}
-                  </select>
-                </div>
-
-                {selectedMatch && slots.length > 0 && (
-                  <div className="animate-fade-slide-in">
-                    <SlotAssignment
-                      slots={slots}
-                      onAssignSlot={handleAssignSlot}
-                      loading={actionLoading}
-                    />
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {/* OCR Upload Tab */}
-          {activeTab === "leaderboard" && (
-            <section className="game-panel animate-fade-slide-in">
-              <div className="relative p-8">
-                <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-yellow-300 mb-8 flex items-center gap-3 animate-text-glow">
-                  <div className="animate-glow-pulse">
-                    <TrendingUp size={32} className="text-orange-500" />
-                  </div>
-                  LEADERBOARD OCR PROCESSOR
-                </h2>
-                <div className="grid md:grid-cols-2 gap-8">
-                  <div className="p-6 bg-gradient-to-r from-gray-800/40 to-gray-700/40 rounded-lg border border-orange-500/30 animate-fade-slide-in">
-                    <label className="text-orange-300 font-bold text-lg mb-4 block">Match ID Input:</label>
-                    <input
-                      type="text"
-                      placeholder="Enter Match ID"
-                      className="w-full bg-gray-800 border-2 border-orange-600 text-white focus:border-yellow-400 focus:outline-none px-4 py-3 rounded-lg transition-all"
-                      id="match-id-input"
-                    />
-                  </div>
-                  <div className="p-6 bg-gradient-to-r from-gray-800/40 to-gray-700/40 rounded-lg border border-orange-500/30 animate-fade-slide-in" style={{animationDelay: "100ms"}}>
-                    <label className="text-orange-300 font-bold text-lg mb-4 block">Upload Leaderboard:</label>
-                    <OCRUpload
-                      matchId={document.getElementById("match-id-input")?.value || ""}
-                      roundNumber={1}
-                      onSuccess={handleOCRUpload}
-                      loading={actionLoading}
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-        </div>
-
-        {/* Footer Stats */}
-        <div className="container mx-auto px-4 mt-16 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { label: "PENDING", value: pendingPayments.length, color: "from-yellow-600 to-orange-600", icon: "⏳" },
-              { label: "APPROVED", value: "∞", color: "from-green-600 to-emerald-600", icon: "✓" },
-              { label: "SYSTEM", value: "ONLINE", color: "from-blue-600 to-cyan-600", icon: "🔷" },
-            ].map((stat, i) => (
-              <div
-                key={i}
-                className={`bg-gradient-to-r ${stat.color} border-2 border-white/20 rounded-lg p-6 text-center hover:border-yellow-300 transition-all transform hover:scale-105 animate-fade-slide-in slot-grid-item relative overflow-hidden group`}
-                style={{ animationDelay: `${i * 100}ms` }}
+            <div>
+              <h2 className="font-bold text-xl text-orange-300 mb-2">Slot Management</h2>
+              <button
+                onClick={() => fetchSlots(selectedMatch)}
+                className="rounded bg-orange-600 px-4 py-2 text-sm font-semibold hover:bg-orange-500"
               >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-20 bg-white/20 transition-opacity"></div>
-                <div className="relative">
-                  <p className="text-white text-sm font-bold opacity-80 mb-2">{stat.label}</p>
-                  <p className="text-white text-4xl font-black drop-shadow-lg">{stat.icon} {stat.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+                Refresh Slots for {selectedMatchName || "selected match"}
+              </button>
 
-        {/* Bottom Decorative Character */}
-        <div className="absolute bottom-8 right-8 opacity-40 pointer-events-none animate-float">
-          <div className="character-slot">
-            <div className="character-asset breathing text-6xl">💨</div>
-          </div>
+              <div className="mt-4 space-y-2">
+                {slots.length === 0 && <p className="text-gray-400">No slots found for selected match.</p>}
+                {slots.map((reg) => (
+                  <div key={reg.id} className="border border-gray-700 rounded-lg p-3 flex justify-between items-center gap-3">
+                    <div>
+                      <div className="font-semibold">{reg.teamId?.name || "Team"}</div>
+                      <div className="text-sm text-gray-400">Current slot: {reg.slotNumber || "Unassigned"}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="12"
+                        defaultValue={reg.slotNumber || 1}
+                        id={`slot-${reg.id}`}
+                        className="w-20 rounded bg-gray-800 border border-gray-700 px-2 py-1"
+                      />
+                      <button
+                        onClick={() => {
+                          const input = document.getElementById(`slot-${reg.id}`);
+                          const slotNumber = Number(input?.value);
+                          if (!slotNumber) {
+                            setError("Please enter a valid slot number");
+                            return;
+                          }
+                          adminAPI.assignSlot(reg.id, slotNumber)
+                            .then(() => {
+                              setSuccess("Slot assigned");
+                              fetchSlots(selectedMatch);
+                            })
+                            .catch((err) => setError(err.response?.data?.message || "Failed to assign slot"));
+                        }}
+                        className="rounded bg-blue-700 px-3 py-1 text-sm hover:bg-blue-600"
+                      >
+                        Assign
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "leaderboard" && (
+            <div className="space-y-4">
+              <h2 className="font-bold text-xl text-orange-300 flex items-center gap-2">
+                <Trophy size={22} /> Upload and Update Leaderboard
+              </h2>
+
+              <form onSubmit={handleUploadLeaderboard} className="space-y-3 border border-gray-700 rounded-lg p-4">
+                <h3 className="font-semibold">Upload OCR Image</h3>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    min="1"
+                    value={leaderboardRound}
+                    onChange={(e) => setLeaderboardRound(e.target.value)}
+                    className="rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+                    placeholder="Round"
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setLeaderboardFile(e.target.files?.[0] || null)}
+                    className="rounded-lg bg-gray-800 border border-gray-700 px-3 py-2"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="rounded bg-orange-600 px-4 py-2 font-semibold hover:bg-orange-500 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Upload size={16} /> Upload Leaderboard
+                </button>
+              </form>
+
+              <div className="border border-gray-700 rounded-lg p-4 space-y-3">
+                <div className="flex flex-wrap gap-2 items-center justify-between">
+                  <h3 className="font-semibold">Manual Leaderboard Update</h3>
+                  <button
+                    onClick={() => fetchLeaderboard(selectedMatch)}
+                    className="rounded bg-gray-800 border border-gray-700 px-3 py-1 text-sm"
+                  >
+                    Refresh Leaderboard
+                  </button>
+                </div>
+
+                {!currentLeaderboard && (
+                  <p className="text-gray-400">No leaderboard exists for this match yet. Upload first, then edit.</p>
+                )}
+
+                <textarea
+                  value={entriesText}
+                  onChange={(e) => setEntriesText(e.target.value)}
+                  rows={12}
+                  className="w-full rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 font-mono text-sm"
+                  placeholder='[ { "teamName": "Team A", "kills": 10, "placement": 1, "points": 22 } ]'
+                />
+                <button
+                  onClick={handleUpdateLeaderboard}
+                  disabled={actionLoading || !currentLeaderboard}
+                  className="rounded bg-blue-700 px-4 py-2 font-semibold hover:bg-blue-600 disabled:opacity-50"
+                >
+                  Save Leaderboard Updates
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

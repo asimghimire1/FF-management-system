@@ -164,6 +164,12 @@ export default function Signup() {
                 SIGN IN HERE
               </Link>
             </p>
+            <p className="mt-2 text-sm">
+              Need admin account?{" "}
+              <Link to="/admin/signup" className="text-orange-400 hover:text-yellow-300 font-black transition">
+                OPEN ADMIN SIGNUP
+              </Link>
+            </p>
           </div>
         </div>
       </div>

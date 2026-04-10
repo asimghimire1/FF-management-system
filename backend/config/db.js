@@ -13,12 +13,21 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log('✓ SQLite database connected');
 
-    // Sync all models
-    await sequelize.sync({ alter: true });
+    // Sync all models - force: true recreates tables if necessary
+    await sequelize.sync({ force: false, alter: false });
     console.log('✓ Database tables synced');
   } catch (error) {
     console.error('✗ Database connection failed:', error.message);
-    process.exit(1);
+    console.error('Full error:', error);
+    // Try one more time with force sync
+    try {
+      console.log('Attempting force sync...');
+      await sequelize.sync({ force: true });
+      console.log('✓ Database force synced');
+    } catch (forceError) {
+      console.error('✗ Force sync also failed:', forceError.message);
+      process.exit(1);
+    }
   }
 };
 

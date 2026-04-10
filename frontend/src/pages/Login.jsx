@@ -126,6 +126,12 @@ export default function Login() {
                 CREATE ONE NOW
               </Link>
             </p>
+            <p className="mt-2 text-sm">
+              Admin access?{" "}
+              <Link to="/admin/login" className="text-orange-400 hover:text-yellow-300 font-black transition">
+                OPEN ADMIN LOGIN
+              </Link>
+            </p>
           </div>
         </div>
       </div>

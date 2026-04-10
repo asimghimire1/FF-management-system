@@ -9,6 +9,7 @@ require("./models/index");
 
 // Import routes
 const authRoutes = require("./routes/auth");
+const adminAuthRoutes = require("./routes/adminAuth");
 const teamRoutes = require("./routes/teams");
 const matchRoutes = require("./routes/matches");
 const registrationRoutes = require("./routes/registrations");
@@ -31,6 +32,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/admin/auth", adminAuthRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/registrations", registrationRoutes);

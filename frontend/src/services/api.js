@@ -35,6 +35,9 @@ export const authAPI = {
   signup: (email, username, password) =>
     api.post("/auth/signup", { email, username, password }),
   login: (email, password) => api.post("/auth/login", { email, password }),
+  adminSignup: (email, username) =>
+    api.post("/admin/auth/signup", { email, username }),
+  adminLogin: (email, password) => api.post("/admin/auth/login", { email, password }),
 };
 
 // Teams endpoints
@@ -92,6 +95,8 @@ export const leaderboardAPI = {
   },
   getLeaderboardByMatch: (matchId) => api.get(`/leaderboards/match/${matchId}`),
   getLeaderboardById: (leaderboardId) => api.get(`/leaderboards/${leaderboardId}`),
+  updateLeaderboard: (leaderboardId, data) =>
+    api.put(`/leaderboards/${leaderboardId}`, data),
 };
 
 // Admin endpoints

@@ -80,8 +80,42 @@ const getLeaderboardById = async (req, res) => {
   }
 };
 
+const updateLeaderboard = async (req, res) => {
+  try {
+    const { entries, roundNumber, prizeDistribution } = req.body;
+    const leaderboard = await Leaderboard.findByPk(req.params.leaderboardId);
+
+    if (!leaderboard) {
+      return res.status(404).json({ message: "Leaderboard not found" });
+    }
+
+    const updates = {};
+    if (Array.isArray(entries)) {
+      updates.entries = entries;
+    }
+    if (typeof roundNumber === "number") {
+      updates.roundNumber = roundNumber;
+    }
+    if (prizeDistribution && typeof prizeDistribution === "object") {
+      updates.prizeDistribution = prizeDistribution;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No valid leaderboard fields provided" });
+    }
+
+    await Leaderboard.update(updates, { where: { id: req.params.leaderboardId } });
+    const updated = await Leaderboard.findByPk(req.params.leaderboardId);
+
+    res.json({ message: "Leaderboard updated", leaderboard: updated });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   uploadAndProcessLeaderboard,
   getLeaderboardByMatch,
   getLeaderboardById,
+  updateLeaderboard,
 };
